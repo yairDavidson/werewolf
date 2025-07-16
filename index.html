@@ -1,10 +1,2279 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Werewolf Test Page</title>
-  </head>
-  <body>
-    <h1>If you see this, GitHub Pages works!</h1>
-  </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Night Ultimate Werewolf Online</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-darker: #0a0a0a;
+            --bg-card: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --accent-color: #bb86fc;
+            --danger-color: #cf6679;
+            --success-color: #03dac6;
+            --warning-color: #ffb74d;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        header {
+            background-color: var(--bg-darker);
+            padding: 15px 0;
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            color: var(--accent-color);
+            font-size: 2.5rem;
+        }
+
+        .game-phase {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.5rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .player-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .player-card {
+            background-color: var(--bg-card);
+            border-radius: 10px;
+            padding: 20px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .player-card.you {
+            border: 2px solid var(--accent-color);
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .player-role {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            min-height: 40px;
+        }
+
+        .player-status {
+            font-size: 0.9rem;
+            color: var(--warning-color);
+            margin-top: 10px;
+        }
+
+        .player-card.dead {
+            opacity: 0.7;
+            border-color: var(--danger-color);
+        }
+
+        .player-card.dead .player-name {
+            text-decoration: line-through;
+        }
+
+        .center-card {
+            background-color: var(--bg-card);
+            border-radius: 10px;
+            padding: 15px;
+            width: 150px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            margin: 10px;
+        }
+
+        .center-cards {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: var(--bg-dark);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: background-color 0.3s, transform 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background-color: #9a67ea;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background-color: var(--border-color);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        button.danger:hover {
+            background-color: #ba1b37;
+        }
+
+        button.success {
+            background-color: var(--success-color);
+            color: var(--bg-dark);
+        }
+
+        button.success:hover {
+            background-color: #00b8a9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
+
+        .role-info {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .role-info h3 {
+            color: var(--accent-color);
+            margin-top: 0;
+        }
+
+        .role-info p {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .join-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        input {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .role-selection {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .role-option {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            width: 120px;
+        }
+
+        .role-option.selected {
+            border-color: var(--accent-color);
+            background-color: rgba(187, 134, 252, 0.1);
+        }
+
+        .role-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .timer {
+            font-size: 1.2rem;
+            text-align: center;
+            margin: 20px 0;
+            color: var(--warning-color);
+        }
+
+        .chat-container {
+            background-color: var(--bg-card);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 30px;
+            border: 1px solid var(--border-color);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .chat-messages {
+            margin-bottom: 15px;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .chat-message .sender {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+        }
+
+        .vote-modal .player-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .vote-option {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .vote-option:hover {
+            border-color: var(--accent-color);
+        }
+
+        .vote-option.selected {
+            border-color: var(--accent-color);
+            background-color: rgba(187, 134, 252, 0.1);
+        }
+
+        .role-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .game-info {
+            background-color: var(--bg-card);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+
+        .admin-panel {
+            background-color: var(--bg-darker);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid var(--danger-color);
+        }
+
+        .admin-panel h3 {
+            color: var(--danger-color);
+            margin-top: 0;
+        }
+
+        .hidden-role {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .role-reveal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(30, 30, 30, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 10px;
+        }
+
+        .role-reveal .role-icon {
+            font-size: 3rem;
+            color: var(--accent-color);
+        }
+
+        .role-reveal .role-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .role-reveal .role-description {
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .night-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .action-step {
+            background-color: var(--bg-card);
+            border-radius: 5px;
+            padding: 15px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .action-step.completed {
+            opacity: 0.6;
+        }
+
+        .action-step.current {
+            border-left-color: var(--success-color);
+        }
+
+        .action-step h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .action-step p {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .player-card {
+                width: 150px;
+                padding: 15px;
+            }
+
+            .center-card {
+                width: 120px;
+                padding: 10px;
+            }
+
+            button {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        /* Role colors */
+        .werewolf { color: #f44336; }
+        .seer { color: #4caf50; }
+        .robber { color: #ff9800; }
+        .troublemaker { color: #e91e63; }
+        .villager { color: #9e9e9e; }
+        .minion { color: #795548; }
+        .mason { color: #2196f3; }
+        .drunk { color: #00bcd4; }
+        .insomniac { color: #673ab7; }
+        .hunter { color: #8bc34a; }
+        .tanner { color: #607d8b; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>One Night Ultimate Werewolf Online</h1>
+    </header>
+
+    <div class="container">
+        <div id="join-screen">
+            <div class="game-info">
+                <h2>Welcome to One Night Ultimate Werewolf!</h2>
+                <p>One Night Ultimate Werewolf is a fast-paced game where everyone gets a role: One of the dastardly Werewolves, or one of the other villagers, each with a special ability.</p>
+                <p>In the course of a single morning, your village will decide who is a werewolf... because all it takes is lynching one werewolf to win!</p>
+            </div>
+
+            <div class="join-form">
+                <h3>Join a Game</h3>
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
+                <div class="action-buttons">
+                    <button id="join-game-btn">Join Random Game</button>
+                    <button id="create-game-btn">Create New Game</button>
+                </div>
+            </div>
+
+            <div class="game-info">
+                <h3>How to Play</h3>
+                <p><strong>1. Night Phase:</strong> Players perform their night actions in order.</p>
+                <p><strong>2. Day Phase:</strong> Players discuss and try to determine who the werewolves are.</p>
+                <p><strong>3. Voting:</strong> All players vote for who they think is a werewolf.</p>
+                <p><strong>4. Resolution:</strong> If a werewolf is killed, the villagers win. Otherwise, the werewolves win!</p>
+                <button id="view-roles-btn">View All Roles</button>
+            </div>
+        </div>
+
+        <div id="game-screen" style="display: none;">
+            <div class="game-phase" id="game-phase-display">Waiting for players...</div>
+            <div class="timer" id="game-timer"></div>
+
+            <div id="player-list" class="player-area"></div>
+            <div id="center-cards" class="center-cards"></div>
+
+            <div class="action-buttons" id="game-action-buttons"></div>
+
+            <div id="admin-panel" class="admin-panel" style="display: none;">
+                <h3>Game Admin</h3>
+                <div class="action-buttons">
+                    <button id="start-game-btn">Start Game</button>
+                    <button id="kick-player-btn">Kick Player</button>
+                    <button id="change-settings-btn">Game Settings</button>
+                </div>
+            </div>
+
+            <div class="game-info">
+                <h3 id="game-instruction">Waiting for game to start...</h3>
+                <div id="night-actions" class="night-actions" style="display: none;"></div>
+            </div>
+
+            <div class="chat-container">
+                <h3>Game Chat</h3>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type your message...">
+                    <button id="send-chat-btn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Info Modal -->
+    <div id="role-info-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Role Information</h2>
+            <div id="role-info-content"></div>
+        </div>
+    </div>
+
+    <!-- Vote Modal -->
+    <div id="vote-modal" class="modal vote-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Cast Your Vote</h2>
+            <p id="vote-instruction">Select a player to vote for:</p>
+            <div class="player-options" id="vote-options"></div>
+            <div class="action-buttons">
+                <button id="confirm-vote-btn">Confirm Vote</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Night Action Modal -->
+    <div id="action-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="action-modal-title">Perform Your Night Action</h2>
+            <div id="action-modal-content"></div>
+            <div class="action-buttons">
+                <button id="confirm-action-btn">Confirm Action</button>
+                <button id="skip-action-btn">Skip Action</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Game Settings</h2>
+            <div>
+                <h3>Select Roles</h3>
+                <p>Minimum 3 players required. Must include at least 1 Werewolf.</p>
+                <div class="role-selection" id="role-selection">
+                    <!-- Roles will be added here dynamically -->
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="save-settings-btn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="game-over-title">Game Over</h2>
+            <div id="game-over-content"></div>
+            <div class="action-buttons">
+                <button id="new-game-btn">Play Again</button>
+                <button id="leave-game-btn">Leave Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+    const firebaseConfig = {
+  apiKey: "AIzaSyAE1dCOpq-60AOvsiA0Jjwp2fQzR6pT6Ho",
+  authDomain: "button-switch.firebaseapp.com",
+  databaseURL: "https://button-switch-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "button-switch",
+  storageBucket: "button-switch.firebasestorage.app",
+  messagingSenderId: "539954061254",
+  appId: "1:539954061254:web:fcffa655892c9094cfdcc7",
+  };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+
+        // Game state variables
+        let currentGameId = null;
+        let playerId = null;
+        let playerName = "";
+        let playerRole = null;
+        let originalRole = null;
+        let isAdmin = false;
+        let gameState = {};
+        let players = {};
+        let centerCards = [];
+        let currentAction = null;
+        let voteSelection = null;
+        let nightActionSelection = null;
+        let chatScroll = true;
+
+        // All possible roles in the game
+        const ALL_ROLES = {
+            WEREWOLF: {
+                id: "werewolf",
+                name: "Werewolf",
+                team: "werewolf",
+                description: "You wake up with the other werewolves. Try to blend in during the day.",
+                nightAction: "Reveal yourself to other werewolves.",
+                count: 2,
+                icon: "🐺"
+            },
+            MINION: {
+                id: "minion",
+                name: "Minion",
+                team: "werewolf",
+                description: "You know who the werewolves are, but you appear as a villager to others.",
+                nightAction: "See who the werewolves are.",
+                count: 1,
+                icon: "👹"
+            },
+            SEER: {
+                id: "seer",
+                name: "Seer",
+                team: "villager",
+                description: "You can look at another player's card or two of the center cards.",
+                nightAction: "Look at another player's card or two center cards.",
+                count: 1,
+                icon: "🔮"
+            },
+            ROBBER: {
+                id: "robber",
+                name: "Robber",
+                team: "villager",
+                description: "You can steal another player's card and look at it, then give them your card.",
+                nightAction: "Swap your card with another player's and look at your new card.",
+                count: 1,
+                icon: "💰"
+            },
+            TROUBLEMAKER: {
+                id: "troublemaker",
+                name: "Troublemaker",
+                team: "villager",
+                description: "You can swap two other players' cards without looking at them.",
+                nightAction: "Swap two other players' cards.",
+                count: 1,
+                icon: "😈"
+            },
+            DRUNK: {
+                id: "drunk",
+                name: "Drunk",
+                team: "villager",
+                description: "You must swap your card with one of the center cards without looking at it.",
+                nightAction: "Swap your card with a center card.",
+                count: 1,
+                icon: "🍺"
+            },
+            INSOMNIAC: {
+                id: "insomniac",
+                name: "Insomniac",
+                team: "villager",
+                description: "You get to look at your card again at the end of the night.",
+                nightAction: "Look at your card again at the end of the night.",
+                count: 1,
+                icon: "🌙"
+            },
+            VILLAGER: {
+                id: "villager",
+                name: "Villager",
+                team: "villager",
+                description: "You have no special abilities. Use your wits to find the werewolves!",
+                nightAction: "Sleep through the night.",
+                count: 0, // Unlimited
+                icon: "👨"
+            },
+            MASON: {
+                id: "mason",
+                name: "Mason",
+                team: "villager",
+                description: "You wake up with the other mason to know who is on your team.",
+                nightAction: "Reveal yourself to the other mason.",
+                count: 2,
+                icon: "👬"
+            },
+            HUNTER: {
+                id: "hunter",
+                name: "Hunter",
+                team: "villager",
+                description: "If you die, the player you vote for also dies.",
+                nightAction: "Sleep through the night.",
+                count: 1,
+                icon: "🏹"
+            },
+            TANNER: {
+                id: "tanner",
+                name: "Tanner",
+                team: "tanner",
+                description: "You win if you are killed. Try to convince others you're a werewolf!",
+                nightAction: "Sleep through the night.",
+                count: 1,
+                icon: "👔"
+            }
+        };
+
+        // Night action order
+        const NIGHT_ACTION_ORDER = [
+            "werewolf",
+            "minion",
+            "mason",
+            "seer",
+            "robber",
+            "troublemaker",
+            "drunk",
+            "insomniac"
+        ];
+
+        // DOM elements
+        const joinScreen = document.getElementById("join-screen");
+        const gameScreen = document.getElementById("game-screen");
+        const playerList = document.getElementById("player-list");
+        const centerCardsDiv = document.getElementById("center-cards");
+        const gamePhaseDisplay = document.getElementById("game-phase-display");
+        const gameTimer = document.getElementById("game-timer");
+        const gameActionButtons = document.getElementById("game-action-buttons");
+        const adminPanel = document.getElementById("admin-panel");
+        const gameInstruction = document.getElementById("game-instruction");
+        const nightActionsDiv = document.getElementById("night-actions");
+        const chatMessages = document.getElementById("chat-messages");
+        const chatInput = document.getElementById("chat-input");
+        const sendChatBtn = document.getElementById("send-chat-btn");
+
+        // Modal elements
+        const roleInfoModal = document.getElementById("role-info-modal");
+        const roleInfoContent = document.getElementById("role-info-content");
+        const voteModal = document.getElementById("vote-modal");
+        const voteOptions = document.getElementById("vote-options");
+        const confirmVoteBtn = document.getElementById("confirm-vote-btn");
+        const actionModal = document.getElementById("action-modal");
+        const actionModalTitle = document.getElementById("action-modal-title");
+        const actionModalContent = document.getElementById("action-modal-content");
+        const confirmActionBtn = document.getElementById("confirm-action-btn");
+        const skipActionBtn = document.getElementById("skip-action-btn");
+        const settingsModal = document.getElementById("settings-modal");
+        const roleSelection = document.getElementById("role-selection");
+        const saveSettingsBtn = document.getElementById("save-settings-btn");
+        const gameOverModal = document.getElementById("game-over-modal");
+        const gameOverTitle = document.getElementById("game-over-title");
+        const gameOverContent = document.getElementById("game-over-content");
+
+        // Button elements
+        const joinGameBtn = document.getElementById("join-game-btn");
+        const createGameBtn = document.getElementById("create-game-btn");
+        const viewRolesBtn = document.getElementById("view-roles-btn");
+        const startGameBtn = document.getElementById("start-game-btn");
+        const kickPlayerBtn = document.getElementById("kick-player-btn");
+        const changeSettingsBtn = document.getElementById("change-settings-btn");
+        const newGameBtn = document.getElementById("new-game-btn");
+        const leaveGameBtn = document.getElementById("leave-game-btn");
+
+        // Close modal buttons
+        const closeModalButtons = document.querySelectorAll(".close-modal");
+        closeModalButtons.forEach(button => {
+            button.addEventListener("click", () => {
+                document.querySelectorAll(".modal").forEach(modal => {
+                    modal.style.display = "none";
+                });
+            });
+        });
+
+        // Initialize event listeners
+        function initEventListeners() {
+            // Join/create game buttons
+            joinGameBtn.addEventListener("click", joinRandomGame);
+            createGameBtn.addEventListener("click", createNewGame);
+            
+            // View roles button
+            viewRolesBtn.addEventListener("click", showAllRoles);
+            
+            // Admin buttons
+            startGameBtn.addEventListener("click", startGame);
+            kickPlayerBtn.addEventListener("click", showKickPlayerOptions);
+            changeSettingsBtn.addEventListener("click", showGameSettings);
+            saveSettingsBtn.addEventListener("click", saveGameSettings);
+            
+            // Game action buttons
+            confirmVoteBtn.addEventListener("click", confirmVote);
+            confirmActionBtn.addEventListener("click", confirmAction);
+            skipActionBtn.addEventListener("click", skipAction);
+            
+            // Game over buttons
+            newGameBtn.addEventListener("click", startNewGame);
+            leaveGameBtn.addEventListener("click", leaveGame);
+            
+            // Chat functionality
+            sendChatBtn.addEventListener("click", sendChatMessage);
+            chatInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    sendChatMessage();
+                }
+            });
+            
+            // Player name input
+            document.getElementById("player-name").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    joinRandomGame();
+                }
+            });
+        }
+
+        // Join a random game
+        function joinRandomGame() {
+            playerName = document.getElementById("player-name").value.trim();
+            if (!playerName) {
+                alert("Please enter your name");
+                return;
+            }
+            
+            // Look for an available game
+            database.ref("games").orderByChild("status").equalTo("waiting").once("value", snapshot => {
+                const games = snapshot.val();
+                if (games) {
+                    // Join the first available game
+                    const gameId = Object.keys(games)[0];
+                    joinGame(gameId);
+                } else {
+                    // No available games, create a new one
+                    createNewGame();
+                }
+            });
+        }
+
+        // Create a new game
+        function createNewGame() {
+            playerName = document.getElementById("player-name").value.trim();
+            if (!playerName) {
+                alert("Please enter your name");
+                return;
+            }
+            
+            // Generate a random game ID
+            const gameId = generateGameId();
+            currentGameId = gameId;
+            
+            // Create game in Firebase
+            const gameRef = database.ref(`games/${gameId}`);
+            const playerRef = database.ref(`games/${gameId}/players`).push();
+            playerId = playerRef.key;
+            
+            // Set initial game state
+            gameRef.set({
+                status: "waiting",
+                admin: playerId,
+                settings: {
+                    roles: [
+                        ALL_ROLES.WEREWOLF,
+                        ALL_ROLES.WEREWOLF,
+                        ALL_ROLES.SEER,
+                        ALL_ROLES.ROBBER,
+                        ALL_ROLES.TROUBLEMAKER,
+                        ALL_ROLES.VILLAGER,
+                        ALL_ROLES.VILLAGER
+                    ],
+                    timerDuration: 300 // 5 minutes
+                },
+                phase: "lobby",
+                timer: null,
+                timerEnd: null,
+                votes: {},
+                nightActions: {},
+                centerCards: []
+            });
+            
+            // Add player to the game
+            playerRef.set({
+                name: playerName,
+                role: null,
+                originalRole: null,
+                isAlive: true,
+                hasVoted: false,
+                ready: false
+            });
+            
+            // Set up game listeners
+            setupGameListeners();
+            
+            // Switch to game screen
+            joinScreen.style.display = "none";
+            gameScreen.style.display = "block";
+            
+            // Player is admin
+            isAdmin = true;
+            adminPanel.style.display = "block";
+            
+            // Update UI
+            updateGameUI();
+        }
+
+        // Join an existing game
+        function joinGame(gameId) {
+            currentGameId = gameId;
+            playerName = document.getElementById("player-name").value.trim();
+            
+            // Add player to the game
+            const playerRef = database.ref(`games/${gameId}/players`).push();
+            playerId = playerRef.key;
+            
+            playerRef.set({
+                name: playerName,
+                role: null,
+                originalRole: null,
+                isAlive: true,
+                hasVoted: false,
+                ready: false
+            });
+            
+            // Set up game listeners
+            setupGameListeners();
+            
+            // Switch to game screen
+            joinScreen.style.display = "none";
+            gameScreen.style.display = "block";
+            
+            // Check if admin
+            database.ref(`games/${gameId}/admin`).once("value", snapshot => {
+                isAdmin = snapshot.val() === playerId;
+                if (isAdmin) {
+                    adminPanel.style.display = "block";
+                }
+            });
+            
+            // Update UI
+            updateGameUI();
+        }
+
+        // Set up Firebase listeners for the game
+        function setupGameListeners() {
+            // Game state listener
+            database.ref(`games/${currentGameId}`).on("value", snapshot => {
+                gameState = snapshot.val() || {};
+                players = gameState.players || {};
+                centerCards = gameState.centerCards || [];
+                
+                // Update UI
+                updateGameUI();
+                
+                // Check for night actions
+                if (gameState.phase === "night" && gameState.nightActions) {
+                    checkNightActions();
+                }
+                
+                // Check if game is over
+                if (gameState.phase === "gameOver") {
+                    showGameOver();
+                }
+            });
+            
+            // Chat listener
+            database.ref(`games/${currentGameId}/chat`).on("child_added", snapshot => {
+                const message = snapshot.val();
+                addChatMessage(message);
+            });
+        }
+
+        // Update the game UI based on current state
+        function updateGameUI() {
+            if (!gameState) return;
+            
+            // Update game phase display
+            gamePhaseDisplay.textContent = getPhaseDisplayText(gameState.phase);
+            
+            // Update player list
+            updatePlayerList();
+            
+            // Update center cards
+            updateCenterCards();
+            
+            // Update action buttons based on game phase
+            updateActionButtons();
+            
+            // Update game instructions
+            updateGameInstructions();
+            
+            // Update night actions display
+            updateNightActionsDisplay();
+            
+            // Show admin panel if player is admin
+            if (isAdmin) {
+                adminPanel.style.display = "block";
+            }
+        }
+
+        // Get display text for game phase
+        function getPhaseDisplayText(phase) {
+            switch (phase) {
+                case "lobby":
+                    return "Waiting for players...";
+                case "night":
+                    return "Night Phase";
+                case "day":
+                    return "Day Phase - Discussion";
+                case "voting":
+                    return "Voting Phase";
+                case "gameOver":
+                    return "Game Over";
+                default:
+                    return phase;
+            }
+        }
+
+        // Update the player list display
+        function updatePlayerList() {
+            playerList.innerHTML = "";
+            
+            Object.keys(players).forEach(pId => {
+                const player = players[pId];
+                const playerCard = document.createElement("div");
+                playerCard.className = `player-card ${pId === playerId ? "you" : ""} ${!player.isAlive ? "dead" : ""}`;
+                
+                let roleDisplay = "Role: Unknown";
+                if (gameState.phase !== "lobby") {
+                    if (pId === playerId || (gameState.phase === "gameOver" && player.role)) {
+                        roleDisplay = `Role: <span class="${player.role}">${player.role ? ALL_ROLES[player.role.toUpperCase()].name : "Unknown"}</span>`;
+                    } else {
+                        roleDisplay = "Role: Hidden";
+                    }
+                }
+                
+                playerCard.innerHTML = `
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-role">${roleDisplay}</div>
+                    <div class="player-status">${getPlayerStatus(player, pId)}</div>
+                `;
+                
+                // Add role reveal functionality for your own card
+                if (pId === playerId && player.role && gameState.phase !== "lobby") {
+                    const roleReveal = document.createElement("div");
+                    roleReveal.className = "role-reveal";
+                    roleReveal.style.display = "none";
+                    roleReveal.innerHTML = `
+                        <div class="role-icon ${player.role}">${ALL_ROLES[player.role.toUpperCase()].icon}</div>
+                        <div class="role-name ${player.role}">${ALL_ROLES[player.role.toUpperCase()].name}</div>
+                        <div class="role-description">${ALL_ROLES[player.role.toUpperCase()].description}</div>
+                    `;
+                    playerCard.appendChild(roleReveal);
+                    
+                    playerCard.addEventListener("click", () => {
+                        if (roleReveal.style.display === "none") {
+                            roleReveal.style.display = "flex";
+                        } else {
+                            roleReveal.style.display = "none";
+                        }
+                    });
+                }
+                
+                playerList.appendChild(playerCard);
+            });
+        }
+
+        // Get player status text
+        function getPlayerStatus(player, pId) {
+            if (gameState.phase === "lobby") {
+                return player.ready ? "Ready" : "Not Ready";
+            } else if (gameState.phase === "voting") {
+                return player.hasVoted ? "Voted" : "Waiting to vote";
+            } else if (gameState.phase === "gameOver") {
+                if (!player.isAlive) return "Killed";
+                const winningTeam = gameState.winningTeam;
+                if (player.role === "tanner" && !player.isAlive) return "Tanner Win!";
+                if (player.role === "tanner" && player.isAlive) return "Tanner Lost";
+                if (ALL_ROLES[player.role.toUpperCase()].team === winningTeam) return "Winner!";
+                return "Loser";
+            }
+            return "";
+        }
+
+        // Update center cards display
+        function updateCenterCards() {
+            centerCardsDiv.innerHTML = "";
+            
+            if (gameState.phase === "lobby") return;
+            
+            centerCards.forEach((card, index) => {
+                const cardDiv = document.createElement("div");
+                cardDiv.className = "center-card";
+                
+                let cardDisplay = "Card: Unknown";
+                if (gameState.phase === "gameOver" && card) {
+                    cardDisplay = `Card: <span class="${card}">${ALL_ROLES[card.toUpperCase()].name}</span>`;
+                } else {
+                    cardDisplay = "Card: Hidden";
+                }
+                
+                cardDiv.innerHTML = `
+                    <div>Center ${index + 1}</div>
+                    <div>${cardDisplay}</div>
+                `;
+                
+                centerCardsDiv.appendChild(cardDiv);
+            });
+        }
+
+        // Update action buttons based on game phase
+        function updateActionButtons() {
+            gameActionButtons.innerHTML = "";
+            
+            switch (gameState.phase) {
+                case "lobby":
+                    if (isAdmin) {
+                        // Admin buttons are in the admin panel
+                    } else {
+                        const readyBtn = document.createElement("button");
+                        readyBtn.textContent = players[playerId]?.ready ? "Not Ready" : "Ready";
+                        readyBtn.addEventListener("click", toggleReady);
+                        gameActionButtons.appendChild(readyBtn);
+                    }
+                    break;
+                    
+                case "night":
+                    if (currentAction) {
+                        const actionBtn = document.createElement("button");
+                        actionBtn.textContent = "Perform Night Action";
+                        actionBtn.addEventListener("click", showNightActionModal);
+                        gameActionButtons.appendChild(actionBtn);
+                    }
+                    break;
+                    
+                case "day":
+                    const startVoteBtn = document.createElement("button");
+                    startVoteBtn.textContent = "Start Voting";
+                    startVoteBtn.disabled = !isAdmin;
+                    startVoteBtn.addEventListener("click", startVoting);
+                    gameActionButtons.appendChild(startVoteBtn);
+                    break;
+                    
+                case "voting":
+                    const voteBtn = document.createElement("button");
+                    voteBtn.textContent = players[playerId]?.hasVoted ? "Change Vote" : "Vote Now";
+                    voteBtn.addEventListener("click", showVoteModal);
+                    gameActionButtons.appendChild(voteBtn);
+                    break;
+                    
+                case "gameOver":
+                    // Buttons are in the game over modal
+                    break;
+            }
+        }
+
+        // Update game instructions
+        function updateGameInstructions() {
+            if (!gameState.phase) return;
+            
+            let instructions = "";
+            
+            switch (gameState.phase) {
+                case "lobby":
+                    if (isAdmin) {
+                        instructions = "You are the game admin. You can start the game when all players are ready.";
+                    } else {
+                        instructions = "Waiting for the admin to start the game. Please mark yourself as ready when you're prepared to play.";
+                    }
+                    break;
+                    
+                case "night":
+                    if (currentAction) {
+                        const role = ALL_ROLES[playerRole.toUpperCase()];
+                        instructions = `It's night time. As the ${role.name}, ${role.nightAction}`;
+                    } else {
+                        instructions = "It's night time. Wait for other players to complete their actions.";
+                    }
+                    break;
+                    
+                case "day":
+                    instructions = "It's day time. Discuss with other players to determine who the werewolves are!";
+                    break;
+                    
+                case "voting":
+                    instructions = "Voting phase. Vote for who you think is a werewolf!";
+                    break;
+                    
+                case "gameOver":
+                    instructions = "The game has ended. See the results above.";
+                    break;
+            }
+            
+            gameInstruction.textContent = instructions;
+        }
+
+        // Update night actions display
+        function updateNightActionsDisplay() {
+            if (gameState.phase !== "night") {
+                nightActionsDiv.style.display = "none";
+                return;
+            }
+            
+            nightActionsDiv.style.display = "block";
+            nightActionsDiv.innerHTML = "<h4>Night Actions</h4>";
+            
+            NIGHT_ACTION_ORDER.forEach(actionRole => {
+                const role = Object.values(ALL_ROLES).find(r => r.id === actionRole);
+                if (!role) return;
+                
+                const actionStep = document.createElement("div");
+                actionStep.className = "action-step";
+                
+                if (gameState.nightActions[actionRole] === "completed") {
+                    actionStep.classList.add("completed");
+                } else if (playerRole === actionRole && !currentAction) {
+                    actionStep.classList.add("current");
+                }
+                
+                actionStep.innerHTML = `
+                    <h4>${role.name}</h4>
+                    <p>${role.nightAction}</p>
+                    <p>Status: ${gameState.nightActions[actionRole] === "completed" ? "Completed" : "Pending"}</p>
+                `;
+                
+                nightActionsDiv.appendChild(actionStep);
+            });
+        }
+
+        // Toggle ready status in lobby
+        function toggleReady() {
+            const currentReady = players[playerId]?.ready || false;
+            database.ref(`games/${currentGameId}/players/${playerId}/ready`).set(!currentReady);
+        }
+
+        // Start the game (admin only)
+        function startGame() {
+            if (!isAdmin) return;
+            
+            // Check if at least 3 players are ready
+            const readyPlayers = Object.values(players).filter(p => p.ready).length;
+            if (readyPlayers < 3) {
+                alert("You need at least 3 ready players to start the game");
+                return;
+            }
+            
+            // Prepare game setup
+            const roles = gameState.settings.roles;
+            const playerCount = Object.keys(players).length;
+            
+            // Check if there's at least one werewolf
+            const werewolfCount = roles.filter(r => r.id === "werewolf").length;
+            if (werewolfCount < 1) {
+                alert("The game must include at least one werewolf");
+                return;
+            }
+            
+            // Prepare role assignments
+            const rolePool = [];
+            roles.forEach(role => {
+                for (let i = 0; i < role.count; i++) {
+                    rolePool.push(role.id);
+                }
+            });
+            
+            // Add villagers if needed
+            while (rolePool.length < playerCount + 3) { // 3 center cards
+                rolePool.push("villager");
+            }
+            
+            // Shuffle roles
+            shuffleArray(rolePool);
+            
+            // Assign roles to players and center cards
+            const playerIds = Object.keys(players);
+            const playerRoles = rolePool.slice(0, playerCount);
+            const newCenterCards = rolePool.slice(playerCount, playerCount + 3);
+            
+            // Update player roles
+            const updates = {};
+            playerIds.forEach((pId, index) => {
+                updates[`${pId}/role`] = playerRoles[index];
+                updates[`${pId}/originalRole`] = playerRoles[index];
+                updates[`${pId}/ready`] = false;
+            });
+            
+            // Update game state
+            updates["phase"] = "night";
+            updates["centerCards"] = newCenterCards;
+            updates["nightActions"] = {};
+            
+            // Initialize night actions
+            NIGHT_ACTION_ORDER.forEach(role => {
+                updates[`nightActions/${role}`] = "pending";
+            });
+            
+            database.ref(`games/${currentGameId}`).update(updates, error => {
+                if (error) {
+                    alert("Error starting game: " + error.message);
+                } else {
+                    // Set current action for each player
+                    checkNightActions();
+                }
+            });
+        }
+
+        // Check night actions for current player
+        function checkNightActions() {
+            if (gameState.phase !== "night") return;
+            
+            playerRole = players[playerId]?.role;
+            originalRole = players[playerId]?.originalRole;
+            
+            // Check if this player has a night action to perform
+            const nightActions = gameState.nightActions || {};
+            
+            // If the role's action is pending and it's this player's role
+            if (playerRole && nightActions[playerRole] === "pending") {
+                currentAction = playerRole;
+            } else {
+                currentAction = null;
+            }
+            
+            updateGameUI();
+        }
+
+        // Show night action modal
+        function showNightActionModal() {
+            if (!currentAction) return;
+            
+            actionModalTitle.textContent = `${ALL_ROLES[currentAction.toUpperCase()].name} Action`;
+            actionModalContent.innerHTML = "";
+            
+            switch (currentAction) {
+                case "werewolf":
+                    showWerewolfAction();
+                    break;
+                case "minion":
+                    showMinionAction();
+                    break;
+                case "mason":
+                    showMasonAction();
+                    break;
+                case "seer":
+                    showSeerAction();
+                    break;
+                case "robber":
+                    showRobberAction();
+                    break;
+                case "troublemaker":
+                    showTroublemakerAction();
+                    break;
+                case "drunk":
+                    showDrunkAction();
+                    break;
+                case "insomniac":
+                    showInsomniacAction();
+                    break;
+                default:
+                    // No action for other roles
+                    skipAction();
+                    return;
+            }
+            
+            actionModal.style.display = "flex";
+        }
+
+        // Show werewolf action
+        function showWerewolfAction() {
+            // Werewolves see each other
+            const otherWerewolves = Object.entries(players)
+                .filter(([id, p]) => p.originalRole === "werewolf" && id !== playerId)
+                .map(([id, p]) => p.name);
+            
+            if (otherWerewolves.length > 0) {
+                actionModalContent.innerHTML = `
+                    <p>The other werewolves are:</p>
+                    <ul>
+                        ${otherWerewolves.map(name => `<li>${name}</li>`).join("")}
+                    </ul>
+                    <p>Remember who they are!</p>
+                `;
+            } else {
+                actionModalContent.innerHTML = `
+                    <p>You are the only werewolf!</p>
+                    <p>Try to blend in with the villagers.</p>
+                `;
+            }
+        }
+
+        // Show minion action
+        function showMinionAction() {
+            // Minion sees the werewolves
+            const werewolves = Object.entries(players)
+                .filter(([id, p]) => p.originalRole === "werewolf")
+                .map(([id, p]) => p.name);
+            
+            if (werewolves.length > 0) {
+                actionModalContent.innerHTML = `
+                    <p>The werewolves are:</p>
+                    <ul>
+                        ${werewolves.map(name => `<li>${name}</li>`).join("")}
+                    </ul>
+                    <p>Help them win without revealing yourself!</p>
+                `;
+            } else {
+                actionModalContent.innerHTML = `
+                    <p>There are no werewolves in this game!</p>
+                    <p>This shouldn't happen. The game is broken.</p>
+                `;
+            }
+        }
+
+        // Show mason action
+        function showMasonAction() {
+            // Masons see each other
+            const otherMasons = Object.entries(players)
+                .filter(([id, p]) => p.originalRole === "mason" && id !== playerId)
+                .map(([id, p]) => p.name);
+            
+            if (otherMasons.length > 0) {
+                actionModalContent.innerHTML = `
+                    <p>The other mason is:</p>
+                    <ul>
+                        ${otherMasons.map(name => `<li>${name}</li>`).join("")}
+                    </ul>
+                    <p>You are both villagers!</p>
+                `;
+            } else {
+                actionModalContent.innerHTML = `
+                    <p>You are the only mason!</p>
+                    <p>This shouldn't happen as masons come in pairs.</p>
+                `;
+            }
+        }
+
+        // Show seer action
+        function showSeerAction() {
+            actionModalContent.innerHTML = `
+                <p>As the Seer, you can:</p>
+                <div class="action-buttons">
+                    <button id="seer-view-player">Look at another player's card</button>
+                    <button id="seer-view-center">Look at two center cards</button>
+                </div>
+            `;
+            
+            document.getElementById("seer-view-player").addEventListener("click", () => {
+                showSeerViewPlayer();
+            });
+            
+            document.getElementById("seer-view-center").addEventListener("click", () => {
+                showSeerViewCenter();
+            });
+        }
+
+        // Show seer view player options
+        function showSeerViewPlayer() {
+            actionModalContent.innerHTML = `
+                <p>Select a player to view their card:</p>
+                <div class="player-options" id="seer-player-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("seer-player-options");
+            Object.entries(players).forEach(([id, player]) => {
+                if (id !== playerId) {
+                    const option = document.createElement("div");
+                    option.className = "vote-option";
+                    option.textContent = player.name;
+                    option.addEventListener("click", () => {
+                        nightActionSelection = id;
+                        showSeerReveal(player.name, players[id].originalRole);
+                    });
+                    optionsDiv.appendChild(option);
+                }
+            });
+        }
+
+        // Show seer view center options
+        function showSeerViewCenter() {
+            actionModalContent.innerHTML = `
+                <p>Select two center cards to view:</p>
+                <div class="player-options" id="seer-center-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("seer-center-options");
+            const selectedCards = [];
+            
+            centerCards.forEach((card, index) => {
+                const option = document.createElement("div");
+                option.className = "vote-option";
+                option.textContent = `Center ${index + 1}`;
+                option.addEventListener("click", () => {
+                    if (selectedCards.includes(index)) {
+                        selectedCards.splice(selectedCards.indexOf(index), 1);
+                        option.classList.remove("selected");
+                    } else if (selectedCards.length < 2) {
+                        selectedCards.push(index);
+                        option.classList.add("selected");
+                    }
+                    
+                    if (selectedCards.length === 2) {
+                        const card1 = centerCards[selectedCards[0]];
+                        const card2 = centerCards[selectedCards[1]];
+                        showSeerReveal(`Center ${selectedCards[0] + 1} and Center ${selectedCards[1] + 1}`, 
+                                      `${ALL_ROLES[card1.toUpperCase()].name} and ${ALL_ROLES[card2.toUpperCase()].name}`);
+                    }
+                });
+                optionsDiv.appendChild(option);
+            });
+        }
+
+        // Show seer reveal
+        function showSeerReveal(target, role) {
+            actionModalContent.innerHTML = `
+                <p>You looked at ${target} and saw:</p>
+                <div class="role-reveal" style="position: relative; margin: 20px 0;">
+                    <div class="role-name" style="font-size: 1.5rem;">${role}</div>
+                </div>
+                <p>Remember this information!</p>
+            `;
+        }
+
+        // Show robber action
+        function showRobberAction() {
+            actionModalContent.innerHTML = `
+                <p>Select a player to rob (swap your card with theirs and look at your new card):</p>
+                <div class="player-options" id="robber-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("robber-options");
+            Object.entries(players).forEach(([id, player]) => {
+                if (id !== playerId) {
+                    const option = document.createElement("div");
+                    option.className = "vote-option";
+                    option.textContent = player.name;
+                    option.addEventListener("click", () => {
+                        nightActionSelection = id;
+                        performRobberAction(id);
+                    });
+                    optionsDiv.appendChild(option);
+                }
+            });
+        }
+
+        // Perform robber action
+        function performRobberAction(targetId) {
+            // Swap roles with the target player
+            const updates = {};
+            updates[`players/${playerId}/role`] = players[targetId].role;
+            updates[`players/${targetId}/role`] = playerRole;
+            
+            database.ref(`games/${currentGameId}`).update(updates, error => {
+                if (error) {
+                    alert("Error performing robber action: " + error.message);
+                } else {
+                    // Show the robber their new role
+                    actionModalContent.innerHTML = `
+                        <p>You stole ${players[targetId].name}'s card and gave them your ${ALL_ROLES[playerRole.toUpperCase()].name} card.</p>
+                        <p>Your new role is:</p>
+                        <div class="role-reveal" style="position: relative; margin: 20px 0;">
+                            <div class="role-icon ${players[targetId].originalRole}">${ALL_ROLES[players[targetId].originalRole.toUpperCase()].icon}</div>
+                            <div class="role-name ${players[targetId].originalRole}">${ALL_ROLES[players[targetId].originalRole.toUpperCase()].name}</div>
+                        </div>
+                        <p>Remember this information!</p>
+                    `;
+                    
+                    // Update local player role
+                    playerRole = players[targetId].role;
+                }
+            });
+        }
+
+        // Show troublemaker action
+        function showTroublemakerAction() {
+            actionModalContent.innerHTML = `
+                <p>Select two players to swap their cards (you won't see their cards):</p>
+                <div class="player-options" id="troublemaker-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("troublemaker-options");
+            const selectedPlayers = [];
+            
+            Object.entries(players).forEach(([id, player]) => {
+                if (id !== playerId) {
+                    const option = document.createElement("div");
+                    option.className = "vote-option";
+                    option.textContent = player.name;
+                    option.addEventListener("click", () => {
+                        if (selectedPlayers.includes(id)) {
+                            selectedPlayers.splice(selectedPlayers.indexOf(id), 1);
+                            option.classList.remove("selected");
+                        } else if (selectedPlayers.length < 2) {
+                            selectedPlayers.push(id);
+                            option.classList.add("selected");
+                        }
+                        
+                        if (selectedPlayers.length === 2) {
+                            performTroublemakerAction(selectedPlayers[0], selectedPlayers[1]);
+                        }
+                    });
+                    optionsDiv.appendChild(option);
+                }
+            });
+        }
+
+        // Perform troublemaker action
+        function performTroublemakerAction(player1Id, player2Id) {
+            // Swap the two players' roles
+            const updates = {};
+            updates[`players/${player1Id}/role`] = players[player2Id].role;
+            updates[`players/${player2Id}/role`] = players[player1Id].role;
+            
+            database.ref(`games/${currentGameId}`).update(updates, error => {
+                if (error) {
+                    alert("Error performing troublemaker action: " + error.message);
+                } else {
+                    actionModalContent.innerHTML = `
+                        <p>You swapped ${players[player1Id].name} and ${players[player2Id].name}'s cards!</p>
+                        <p>They won't know their cards were swapped unless they check again.</p>
+                    `;
+                }
+            });
+        }
+
+        // Show drunk action
+        function showDrunkAction() {
+            actionModalContent.innerHTML = `
+                <p>Select a center card to swap with (you won't see the new card):</p>
+                <div class="player-options" id="drunk-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("drunk-options");
+            
+            centerCards.forEach((card, index) => {
+                const option = document.createElement("div");
+                option.className = "vote-option";
+                option.textContent = `Center ${index + 1}`;
+                option.addEventListener("click", () => {
+                    nightActionSelection = index;
+                    performDrunkAction(index);
+                });
+                optionsDiv.appendChild(option);
+            });
+        }
+
+        // Perform drunk action
+        function performDrunkAction(cardIndex) {
+            // Swap player's role with the center card
+            const updates = {};
+            const tempRole = players[playerId].role;
+            
+            updates[`players/${playerId}/role`] = centerCards[cardIndex];
+            updates[`centerCards/${cardIndex}`] = tempRole;
+            
+            database.ref(`games/${currentGameId}`).update(updates, error => {
+                if (error) {
+                    alert("Error performing drunk action: " + error.message);
+                } else {
+                    actionModalContent.innerHTML = `
+                        <p>You swapped your card with Center ${cardIndex + 1}!</p>
+                        <p>You won't know your new role until the Insomniac wakes.</p>
+                    `;
+                    
+                    // Update local player role
+                    playerRole = centerCards[cardIndex];
+                }
+            });
+        }
+
+        // Show insomniac action
+        function showInsomniacAction() {
+            // Insomniac looks at their own card again
+            actionModalContent.innerHTML = `
+                <p>Your current role is:</p>
+                <div class="role-reveal" style="position: relative; margin: 20px 0;">
+                    <div class="role-icon ${playerRole}">${ALL_ROLES[playerRole.toUpperCase()].icon}</div>
+                    <div class="role-name ${playerRole}">${ALL_ROLES[playerRole.toUpperCase()].name}</div>
+                </div>
+                <p>Remember this information!</p>
+            `;
+        }
+
+        // Confirm night action
+        function confirmAction() {
+            if (!currentAction) return;
+            
+            // Mark action as completed
+            database.ref(`games/${currentGameId}/nightActions/${currentAction}`).set("completed");
+            
+            // Reset current action
+            currentAction = null;
+            nightActionSelection = null;
+            
+            // Close modal
+            actionModal.style.display = "none";
+        }
+
+        // Skip night action
+        function skipAction() {
+            if (!currentAction) return;
+            
+            // Mark action as skipped
+            database.ref(`games/${currentGameId}/nightActions/${currentAction}`).set("skipped");
+            
+            // Reset current action
+            currentAction = null;
+            nightActionSelection = null;
+            
+            // Close modal
+            actionModal.style.display = "none";
+        }
+
+        // Start voting phase (admin only)
+        function startVoting() {
+            if (!isAdmin) return;
+            
+            // Check if all night actions are completed
+            const nightActions = gameState.nightActions || {};
+            const pendingActions = Object.values(nightActions).filter(status => status === "pending").length;
+            
+            if (pendingActions > 0) {
+                alert("Not all night actions have been completed yet");
+                return;
+            }
+            
+            // Start timer
+            const timerDuration = gameState.settings?.timerDuration || 300; // 5 minutes default
+            const timerEnd = Date.now() + timerDuration * 1000;
+            
+            // Update game state
+            database.ref(`games/${currentGameId}`).update({
+                phase: "voting",
+                timer: timerDuration,
+                timerEnd: timerEnd,
+                votes: {}
+            });
+            
+            // Start timer countdown
+            startTimerCountdown(timerEnd);
+        }
+
+        // Start timer countdown
+        function startTimerCountdown(endTime) {
+            const updateTimer = () => {
+                if (gameState.phase !== "voting") return;
+                
+                const now = Date.now();
+                const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+                
+                if (remaining <= 0) {
+                    // Time's up - end voting
+                    endVoting();
+                    return;
+                }
+                
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                gameTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Update every second
+                setTimeout(updateTimer, 1000);
+            };
+            
+            updateTimer();
+        }
+
+        // Show vote modal
+        function showVoteModal() {
+            voteOptions.innerHTML = "";
+            
+            // Add players to vote for
+            Object.entries(players).forEach(([id, player]) => {
+                if (id !== playerId && player.isAlive) {
+                    const option = document.createElement("div");
+                    option.className = "vote-option";
+                    option.textContent = player.name;
+                    option.addEventListener("click", () => {
+                        // Select this player
+                        document.querySelectorAll(".vote-option").forEach(opt => {
+                            opt.classList.remove("selected");
+                        });
+                        option.classList.add("selected");
+                        voteSelection = id;
+                    });
+                    voteOptions.appendChild(option);
+                }
+            });
+            
+            // Add "No vote" option
+            const noVoteOption = document.createElement("div");
+            noVoteOption.className = "vote-option";
+            noVoteOption.textContent = "No Vote";
+            noVoteOption.addEventListener("click", () => {
+                document.querySelectorAll(".vote-option").forEach(opt => {
+                    opt.classList.remove("selected");
+                });
+                noVoteOption.classList.add("selected");
+                voteSelection = null;
+            });
+            voteOptions.appendChild(noVoteOption);
+            
+            // Show current vote if exists
+            if (gameState.votes && gameState.votes[playerId]) {
+                const currentVote = gameState.votes[playerId];
+                if (currentVote) {
+                    const currentOption = Array.from(document.querySelectorAll(".vote-option"))
+                        .find(opt => opt.textContent === players[currentVote]?.name || opt.textContent === "No Vote");
+                    if (currentOption) {
+                        currentOption.classList.add("selected");
+                        voteSelection = currentVote;
+                    }
+                }
+            }
+            
+            voteModal.style.display = "flex";
+        }
+
+        // Confirm vote
+        function confirmVote() {
+            if (voteSelection === undefined) return;
+            
+            // Update vote in Firebase
+            const updates = {};
+            updates[`votes/${playerId}`] = voteSelection;
+            updates[`players/${playerId}/hasVoted`] = true;
+            
+            database.ref(`games/${currentGameId}`).update(updates, error => {
+                if (error) {
+                    alert("Error submitting vote: " + error.message);
+                } else {
+                    voteModal.style.display = "none";
+                    updateGameUI();
+                    
+                    // Check if all players have voted
+                    checkVotingCompletion();
+                }
+            });
+        }
+
+        // Check if all players have voted
+        function checkVotingCompletion() {
+            if (gameState.phase !== "voting") return;
+            
+            const allVoted = Object.values(players).every(p => !p.isAlive || p.hasVoted);
+            if (allVoted) {
+                endVoting();
+            }
+        }
+
+        // End voting and determine results
+        function endVoting() {
+            if (!isAdmin) return;
+            
+            // Count votes
+            const voteCounts = {};
+            Object.values(gameState.votes || {}).forEach(vote => {
+                if (vote) { // Skip null votes
+                    voteCounts[vote] = (voteCounts[vote] || 0) + 1;
+                }
+            });
+            
+            // Find player(s) with most votes
+            let maxVotes = 0;
+            let playersToKill = [];
+            
+            Object.entries(voteCounts).forEach(([playerId, count]) => {
+                if (count > maxVotes) {
+                    maxVotes = count;
+                    playersToKill = [playerId];
+                } else if (count === maxVotes) {
+                    playersToKill.push(playerId);
+                }
+            });
+            
+            // If tie or no votes, no one dies
+            if (playersToKill.length !== 1) {
+                playersToKill = [];
+            }
+            
+            // Check for hunter effect
+            const hunterKill = checkHunterEffect(playersToKill[0]);
+            if (hunterKill) {
+                playersToKill.push(hunterKill);
+            }
+            
+            // Update player statuses
+            const updates = {};
+            playersToKill.forEach(pId => {
+                updates[`players/${pId}/isAlive`] = false;
+            });
+            
+            // Determine winning team
+            const winningTeam = determineWinningTeam(playersToKill);
+            
+            updates["phase"] = "gameOver";
+            updates["playersKilled"] = playersToKill;
+            updates["winningTeam"] = winningTeam;
+            
+            database.ref(`games/${currentGameId}`).update(updates);
+        }
+
+        // Check for hunter effect
+        function checkHunterEffect(killedPlayerId) {
+            if (!killedPlayerId) return null;
+            
+            // Check if killed player was hunter
+            if (players[killedPlayerId]?.originalRole === "hunter") {
+                // Hunter gets to kill someone else
+                const hunterVote = gameState.votes[killedPlayerId];
+                if (hunterVote && hunterVote !== killedPlayerId) {
+                    return hunterVote;
+                }
+            }
+            
+            return null;
+        }
+
+        // Determine winning team
+        function determineWinningTeam(playersKilled) {
+            // Check if tanner was killed
+            const tannerKilled = playersKilled.some(pId => players[pId]?.originalRole === "tanner");
+            if (tannerKilled) return "tanner";
+            
+            // Check if any werewolves were killed
+            const werewolfKilled = playersKilled.some(pId => {
+                const role = players[pId]?.originalRole;
+                return role === "werewolf" || role === "minion";
+            });
+            
+            if (werewolfKilled) {
+                return "villager";
+            } else {
+                return "werewolf";
+            }
+        }
+
+        // Show game over screen
+        function showGameOver() {
+            const winningTeam = gameState.winningTeam;
+            let title = "";
+            let content = "";
+            
+            if (winningTeam === "tanner") {
+                title = "Tanner Wins!";
+                content = `<p>The Tanner was killed and wins the game!</p>`;
+            } else if (winningTeam === "villager") {
+                title = "Villagers Win!";
+                content = `<p>The villagers successfully killed a werewolf!</p>`;
+            } else {
+                title = "Werewolves Win!";
+                content = `<p>The werewolves survive another night!</p>`;
+            }
+            
+            // Show killed players
+            const killedPlayers = gameState.playersKilled || [];
+            if (killedPlayers.length > 0) {
+                content += `<p>Players killed: ${killedPlayers.map(pId => players[pId]?.name).join(", ")}</p>`;
+            } else {
+                content += `<p>No players were killed.</p>`;
+            }
+            
+            // Show roles
+            content += `<h3>Final Roles:</h3><ul>`;
+            Object.entries(players).forEach(([id, player]) => {
+                content += `<li>${player.name}: <span class="${player.originalRole}">${ALL_ROLES[player.originalRole.toUpperCase()].name}</span></li>`;
+            });
+            content += `</ul>`;
+            
+            // Show center cards
+            content += `<h3>Center Cards:</h3><ul>`;
+            centerCards.forEach((card, index) => {
+                content += `<li>Center ${index + 1}: <span class="${card}">${ALL_ROLES[card.toUpperCase()].name}</span></li>`;
+            });
+            content += `</ul>`;
+            
+            gameOverTitle.textContent = title;
+            gameOverContent.innerHTML = content;
+            gameOverModal.style.display = "flex";
+        }
+
+        // Start a new game with same players
+        function startNewGame() {
+            if (!isAdmin) return;
+            
+            // Reset game state
+            const updates = {
+                phase: "lobby",
+                timer: null,
+                timerEnd: null,
+                votes: {},
+                nightActions: {},
+                centerCards: [],
+                playersKilled: null,
+                winningTeam: null
+            };
+            
+            // Reset player states
+            Object.keys(players).forEach(pId => {
+                updates[`players/${pId}/role`] = null;
+                updates[`players/${pId}/originalRole`] = null;
+                updates[`players/${pId}/isAlive`] = true;
+                updates[`players/${pId}/hasVoted`] = false;
+                updates[`players/${pId}/ready`] = false;
+            });
+            
+            database.ref(`games/${currentGameId}`).update(updates);
+            gameOverModal.style.display = "none";
+        }
+
+        // Leave the game
+        function leaveGame() {
+            // Remove player from game
+            database.ref(`games/${currentGameId}/players/${playerId}`).remove();
+            
+            // If player was admin, assign new admin
+            if (isAdmin) {
+                const otherPlayers = Object.keys(players).filter(pId => pId !== playerId);
+                if (otherPlayers.length > 0) {
+                    database.ref(`games/${currentGameId}/admin`).set(otherPlayers[0]);
+                } else {
+                    // No players left - delete game
+                    database.ref(`games/${currentGameId}`).remove();
+                }
+            }
+            
+            // Return to join screen
+            gameScreen.style.display = "none";
+            joinScreen.style.display = "block";
+            gameOverModal.style.display = "none";
+            
+            // Reset game state
+            currentGameId = null;
+            playerId = null;
+            playerName = "";
+            playerRole = null;
+            originalRole = null;
+            isAdmin = false;
+            gameState = {};
+            players = {};
+            centerCards = [];
+            currentAction = null;
+            voteSelection = null;
+            nightActionSelection = null;
+        }
+
+        // Show kick player options (admin only)
+        function showKickPlayerOptions() {
+            actionModalTitle.textContent = "Kick Player";
+            actionModalContent.innerHTML = `
+                <p>Select a player to kick from the game:</p>
+                <div class="player-options" id="kick-options"></div>
+            `;
+            
+            const optionsDiv = document.getElementById("kick-options");
+            Object.entries(players).forEach(([id, player]) => {
+                if (id !== playerId) {
+                    const option = document.createElement("div");
+                    option.className = "vote-option";
+                    option.textContent = player.name;
+                    option.addEventListener("click", () => {
+                        kickPlayer(id);
+                    });
+                    optionsDiv.appendChild(option);
+                }
+            });
+            
+            actionModal.style.display = "flex";
+        }
+
+        // Kick player from game
+        function kickPlayer(playerIdToKick) {
+            database.ref(`games/${currentGameId}/players/${playerIdToKick}`).remove();
+            actionModal.style.display = "none";
+        }
+
+        // Show game settings (admin only)
+        function showGameSettings() {
+            roleSelection.innerHTML = "";
+            
+            // Add all roles to selection
+            Object.values(ALL_ROLES).forEach(role => {
+                const roleOption = document.createElement("div");
+                roleOption.className = "role-option";
+                roleOption.innerHTML = `
+                    <div class="role-icon ${role.id}">${role.icon}</div>
+                    <div>${role.name}</div>
+                `;
+                
+                // Check if role is currently selected
+                const isSelected = gameState.settings?.roles?.some(r => r.id === role.id);
+                if (isSelected) {
+                    roleOption.classList.add("selected");
+                }
+                
+                // Disable if role has count 0 (like villager)
+                if (role.count === 0) {
+                    roleOption.classList.add("disabled");
+                }
+                
+                roleOption.addEventListener("click", () => {
+                    if (role.count === 0) return; // Can't toggle villager
+                    
+                    if (roleOption.classList.contains("selected")) {
+                        roleOption.classList.remove("selected");
+                    } else {
+                        // For werewolf, ensure at least one remains
+                        if (role.id === "werewolf") {
+                            const selectedWerewolves = document.querySelectorAll(".role-option.selected.werewolf").length;
+                            if (selectedWerewolves <= 1) {
+                                alert("You must have at least one werewolf in the game");
+                                return;
+                            }
+                        }
+                        roleOption.classList.add("selected");
+                    }
+                });
+                
+                roleSelection.appendChild(roleOption);
+            });
+            
+            settingsModal.style.display = "flex";
+        }
+
+        // Save game settings
+        function saveGameSettings() {
+            if (!isAdmin) return;
+            
+            // Get selected roles
+            const selectedRoles = [];
+            document.querySelectorAll(".role-option.selected").forEach(option => {
+                const roleId = option.querySelector(".role-icon").classList[1];
+                selectedRoles.push(Object.values(ALL_ROLES).find(r => r.id === roleId));
+            });
+            
+            // Ensure at least one werewolf is selected
+            const hasWerewolf = selectedRoles.some(r => r.id === "werewolf");
+            if (!hasWerewolf) {
+                alert("You must include at least one werewolf in the game");
+                return;
+            }
+            
+            // Update game settings
+            database.ref(`games/${currentGameId}/settings/roles`).set(selectedRoles);
+            settingsModal.style.display = "none";
+        }
+
+        // Show all roles information
+        function showAllRoles() {
+            roleInfoContent.innerHTML = "";
+            
+            Object.values(ALL_ROLES).forEach(role => {
+                const roleInfo = document.createElement("div");
+                roleInfo.className = "role-info";
+                roleInfo.innerHTML = `
+                    <h3 class="${role.id}"><span class="role-icon ${role.id}">${role.icon}</span> ${role.name}</h3>
+                    <p><strong>Team:</strong> ${role.team === "werewolf" ? "Werewolf" : role.team === "tanner" ? "Tanner" : "Villager"}</p>
+                    <p><strong>Description:</strong> ${role.description}</p>
+                    <p><strong>Night Action:</strong> ${role.nightAction}</p>
+                `;
+                roleInfoContent.appendChild(roleInfo);
+            });
+            
+            roleInfoModal.style.display = "flex";
+        }
+
+        // Send chat message
+        function sendChatMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            // Add message to chat
+            database.ref(`games/${currentGameId}/chat`).push({
+                sender: playerName,
+                message: message,
+                timestamp: Date.now()
+            });
+            
+            // Clear input
+            chatInput.value = "";
+        }
+
+        // Add chat message to display
+        function addChatMessage(message) {
+            const messageDiv = document.createElement("div");
+            messageDiv.className = "chat-message";
+            messageDiv.innerHTML = `
+                <span class="sender">${message.sender}:</span> ${message.message}
+            `;
+            chatMessages.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom if at bottom
+            if (chatScroll) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Helper function to generate random game ID
+        function generateGameId() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let result = "";
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Helper function to shuffle array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Initialize the app
+        initEventListeners();
+    </script>
+</body>
 </html>
